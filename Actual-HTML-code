@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>File Type Identifier</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;500;700&display=swap');
+
+  :root {
+    --bg: #0a0c10;
+    --panel: #0f1318;
+    --border: #1e2530;
+    --green: #00ff88;
+    --red: #ff3355;
+    --yellow: #ffcc00;
+    --cyan: #00cfff;
+    --text: #c8d6e5;
+    --dim: #4a5568;
+    --glow-green: 0 0 12px #00ff8880, 0 0 30px #00ff8830;
+    --glow-red: 0 0 12px #ff335580, 0 0 30px #ff335530;
+    --glow-cyan: 0 0 12px #00cfff60;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,255,136,0.015) 2px,
+      rgba(0,255,136,0.015) 4px
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 680px;
+  }
+
+  header {
+    margin-bottom: 32px;
+    text-align: center;
+  }
+
+  .title-tag {
+    font-size: 10px;
+    letter-spacing: 4px;
+    color: var(--dim);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  h1 {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 2.4rem;
+    letter-spacing: 2px;
+    color: var(--cyan);
+    text-shadow: var(--glow-cyan);
+    text-transform: uppercase;
+  }
+
+  h1 span { color: var(--green); }
+
+  .subtitle {
+    font-size: 11px;
+    color: var(--dim);
+    margin-top: 6px;
+    letter-spacing: 2px;
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    background: var(--border);
+    padding: 8px 16px;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--dim);
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .dot-r { background: #ff3355; }
+  .dot-y { background: #ffcc00; }
+  .dot-g { background: #00ff88; }
+
+  /* Drop Zone */
+  .drop-zone {
+    margin: 24px;
+    border: 2px dashed var(--border);
+    border-radius: 4px;
+    padding: 48px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .drop-zone::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 50%, rgba(0,207,255,0.04) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .drop-zone:hover, .drop-zone.dragging {
+    border-color: var(--cyan);
+    box-shadow: inset 0 0 30px rgba(0,207,255,0.05), 0 0 0 1px rgba(0,207,255,0.2);
+  }
+
+  .drop-zone:hover::before, .drop-zone.dragging::before { opacity: 1; }
+
+  .drop-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    display: block;
+    filter: grayscale(1);
+    transition: filter 0.3s;
+  }
+
+  .drop-zone:hover .drop-icon { filter: none; }
+
+  .drop-text {
+    font-size: 13px;
+    color: var(--dim);
+    letter-spacing: 1px;
+  }
+
+  .drop-text strong {
+    color: var(--cyan);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 15px;
+    letter-spacing: 2px;
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  .supported {
+    margin-top: 12px;
+    font-size: 10px;
+    color: #2a3440;
+    letter-spacing: 2px;
+  }
+
+  input[type="file"] { display: none; }
+
+  /* Results */
+  .results {
+    margin: 0 24px 24px;
+    display: none;
+    flex-direction: column;
+    gap: 12px;
+    animation: fadeIn 0.4s ease;
+  }
+
+  .results.show { display: flex; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .result-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .info-block {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 12px 16px;
+  }
+
+  .info-label {
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: var(--dim);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .info-value {
+    font-size: 14px;
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 500;
+    letter-spacing: 1px;
+    word-break: break-all;
+  }
+
+  .info-value.mono { font-family: 'Share Tech Mono', monospace; font-size: 12px; }
+
+  /* Verdict */
+  .verdict {
+    border-radius: 3px;
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .verdict::after {
+    content: '';
+    position: absolute;
+    right: -20px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    opacity: 0.07;
+    transition: opacity 0.3s;
+  }
+
+  .verdict.safe {
+    border: 1px solid var(--green);
+    background: rgba(0,255,136,0.05);
+    box-shadow: var(--glow-green);
+  }
+
+  .verdict.safe::after { background: var(--green); opacity: 0.08; }
+
+  .verdict.mismatch {
+    border: 1px solid var(--red);
+    background: rgba(255,51,85,0.05);
+    box-shadow: var(--glow-red);
+  }
+
+  .verdict.mismatch::after { background: var(--red); }
+
+  .verdict.unknown {
+    border: 1px solid var(--yellow);
+    background: rgba(255,204,0,0.05);
+  }
+
+  .verdict-icon { font-size: 32px; flex-shrink: 0; }
+
+  .verdict-text { flex: 1; }
+
+  .verdict-status {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 1.4rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  .verdict.safe .verdict-status { color: var(--green); text-shadow: var(--glow-green); }
+  .verdict.mismatch .verdict-status { color: var(--red); text-shadow: var(--glow-red); }
+  .verdict.unknown .verdict-status { color: var(--yellow); }
+
+  .verdict-desc {
+    font-size: 11px;
+    color: var(--dim);
+    margin-top: 4px;
+    letter-spacing: 1px;
+    line-height: 1.5;
+  }
+
+  /* Hex dump */
+  .hex-block {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 12px 16px;
+  }
+
+  .hex-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .hex-byte {
+    font-size: 12px;
+    padding: 2px 5px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.04);
+    color: var(--cyan);
+    letter-spacing: 1px;
+  }
+
+  .hex-byte.magic { background: rgba(0,207,255,0.15); color: #fff; }
+
+  /* Separator */
+  .sep {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0;
+  }
+
+  /* Reset button */
+  .reset-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--dim);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    padding: 10px 20px;
+    border-radius: 3px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    display: block;
+    width: 100%;
+    margin-top: 4px;
+  }
+
+  .reset-btn:hover {
+    border-color: var(--cyan);
+    color: var(--cyan);
+    box-shadow: var(--glow-cyan);
+  }
+
+  /* Scan animation */
+  @keyframes scan {
+    0% { transform: translateY(-100%); opacity: 0.6; }
+    100% { transform: translateY(400%); opacity: 0; }
+  }
+
+  .scanning .scan-line {
+    position: absolute;
+    left: 0; right: 0; top: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+    animation: scan 1s ease-in-out;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="title-tag">// security utility v1.0</div>
+    <h1>File <span>Type</span> Identifier</h1>
+    <div class="subtitle">MAGIC NUMBER · EXTENSION · VALIDATION</div>
+  </header>
+
+  <div class="panel">
+    <div class="panel-header">
+      <div class="dot dot-r"></div>
+      <div class="dot dot-y"></div>
+      <div class="dot dot-g"></div>
+      <span style="margin-left:4px">FILE ANALYSIS MODULE</span>
+    </div>
+
+    <label for="fileInput">
+      <div class="drop-zone" id="dropZone">
+        <div class="scan-line" style="display:none"></div>
+        <span class="drop-icon">🔍</span>
+        <div class="drop-text">
+          <strong>DROP FILE OR CLICK TO UPLOAD</strong>
+          Upload any file — magic bytes will be read
+        </div>
+        <div class="supported">DETECTS · PNG · EXE · JPG · PDF · GIF · ZIP · AND MORE</div>
+      </div>
+    </label>
+    <input type="file" id="fileInput">
+
+    <div class="results" id="results">
+      <div class="result-row">
+        <div class="info-block">
+          <div class="info-label">Filename</div>
+          <div class="info-value" id="fileName">—</div>
+        </div>
+        <div class="info-block">
+          <div class="info-label">File Size</div>
+          <div class="info-value" id="fileSize">—</div>
+        </div>
+      </div>
+
+      <div class="result-row">
+        <div class="info-block">
+          <div class="info-label">Extension (claimed)</div>
+          <div class="info-value mono" id="fileExt">—</div>
+        </div>
+        <div class="info-block">
+          <div class="info-label">Detected Type (magic)</div>
+          <div class="info-value mono" id="detectedType">—</div>
+        </div>
+      </div>
+
+      <div class="hex-block">
+        <div class="info-label" style="margin-bottom:8px">First 16 Bytes (Hex)</div>
+        <div class="hex-row" id="hexDump"></div>
+      </div>
+
+      <div class="sep"></div>
+
+      <div class="verdict" id="verdict">
+        <div class="verdict-icon" id="verdictIcon"></div>
+        <div class="verdict-text">
+          <div class="verdict-status" id="verdictStatus"></div>
+          <div class="verdict-desc" id="verdictDesc"></div>
+        </div>
+      </div>
+
+      <button class="reset-btn" onclick="reset()">[ ANALYZE ANOTHER FILE ]</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Magic number signatures
+const SIGNATURES = [
+  { type: 'PNG',  ext: ['png'],       offset: 0, magic: [0x89,0x50,0x4E,0x47,0x0D,0x0A,0x1A,0x0A] },
+  { type: 'JPG',  ext: ['jpg','jpeg'],offset: 0, magic: [0xFF,0xD8,0xFF] },
+  { type: 'GIF',  ext: ['gif'],       offset: 0, magic: [0x47,0x49,0x46,0x38] },
+  { type: 'PDF',  ext: ['pdf'],       offset: 0, magic: [0x25,0x50,0x44,0x46] },
+  { type: 'ZIP',  ext: ['zip','jar','apk','docx','xlsx','pptx'], offset: 0, magic: [0x50,0x4B,0x03,0x04] },
+  { type: 'EXE/PE', ext: ['exe','dll','sys','scr'], offset: 0, magic: [0x4D,0x5A] },
+  { type: 'ELF',  ext: ['elf','so','out'],offset: 0, magic: [0x7F,0x45,0x4C,0x46] },
+  { type: 'BMP',  ext: ['bmp'],       offset: 0, magic: [0x42,0x4D] },
+  { type: 'WEBP', ext: ['webp'],      offset: 0, magic: [0x52,0x49,0x46,0x46] },
+  { type: 'MP4',  ext: ['mp4','m4v'], offset: 4, magic: [0x66,0x74,0x79,0x70] },
+  { type: 'MP3',  ext: ['mp3'],       offset: 0, magic: [0x49,0x44,0x33] },
+  { type: 'RAR',  ext: ['rar'],       offset: 0, magic: [0x52,0x61,0x72,0x21] },
+  { type: '7Z',   ext: ['7z'],        offset: 0, magic: [0x37,0x7A,0xBC,0xAF,0x27,0x1C] },
+  { type: 'CLASS (Java)', ext: ['class'], offset: 0, magic: [0xCA,0xFE,0xBA,0xBE] },
+];
+
+function detectMagic(bytes) {
+  for (const sig of SIGNATURES) {
+    const slice = bytes.slice(sig.offset, sig.offset + sig.magic.length);
+    if (sig.magic.every((b, i) => slice[i] === b)) return sig;
+  }
+  return null;
+}
+
+function formatSize(n) {
+  if (n < 1024) return n + ' B';
+  if (n < 1024*1024) return (n/1024).toFixed(1) + ' KB';
+  return (n/(1024*1024)).toFixed(2) + ' MB';
+}
+
+function toHex(b) { return b.toString(16).toUpperCase().padStart(2,'0'); }
+
+function analyzeFile(file) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const buffer = new Uint8Array(e.target.result);
+    const bytes = Array.from(buffer.slice(0, 16));
+
+    // Extension
+    const parts = file.name.split('.');
+    const ext = parts.length > 1 ? parts[parts.length-1].toLowerCase() : '';
+
+    // Detect
+    const sig = detectMagic(buffer);
+    const detectedType = sig ? sig.type : 'Unknown / Plain Text';
+
+    // Populate info
+    document.getElementById('fileName').textContent = file.name;
+    document.getElementById('fileSize').textContent = formatSize(file.size);
+    document.getElementById('fileExt').textContent = ext ? '.' + ext : '(none)';
+    document.getElementById('detectedType').textContent = detectedType;
+
+    // Hex dump
+    const hexContainer = document.getElementById('hexDump');
+    hexContainer.innerHTML = '';
+    const magicLen = sig ? sig.magic.length : 0;
+    bytes.forEach((b, i) => {
+      const span = document.createElement('span');
+      span.className = 'hex-byte' + (sig && i >= sig.offset && i < sig.offset + magicLen ? ' magic' : '');
+      span.textContent = toHex(b);
+      hexContainer.appendChild(span);
+    });
+
+    // Verdict
+    const verdict = document.getElementById('verdict');
+    const vIcon = document.getElementById('verdictIcon');
+    const vStatus = document.getElementById('verdictStatus');
+    const vDesc = document.getElementById('verdictDesc');
+
+    verdict.className = 'verdict';
+
+    if (!sig) {
+      verdict.classList.add('unknown');
+      vIcon.textContent = '⚠️';
+      vStatus.textContent = 'UNKNOWN';
+      vDesc.textContent =
+        `No recognized magic bytes found. Extension ".${ext || 'none'}" cannot be verified. ` +
+        `Could be a plain text file, script, or unsupported binary format.`;
+    } else {
+      const extMatch = sig.ext.includes(ext);
+      if (extMatch) {
+        verdict.classList.add('safe');
+        vIcon.textContent = '✅';
+        vStatus.textContent = 'SAFE — MATCH';
+        vDesc.textContent =
+          `Extension ".${ext}" matches detected type "${sig.type}". ` +
+          `Magic bytes confirm the file is what it claims to be.`;
+      } else {
+        verdict.classList.add('mismatch');
+        vIcon.textContent = '🚨';
+        vStatus.textContent = 'MISMATCH — SUSPICIOUS';
+        vDesc.textContent =
+          `Extension ".${ext || 'none'}" does NOT match detected type "${sig.type}". ` +
+          `Magic bytes suggest a "${sig.type}" file. This file may be disguised or tampered.`;
+      }
+    }
+
+    document.getElementById('results').classList.add('show');
+    document.getElementById('dropZone').style.display = 'none';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// Click upload
+document.getElementById('fileInput').addEventListener('change', e => {
+  if (e.target.files[0]) analyzeFile(e.target.files[0]);
+});
+
+// Drag & drop
+const dz = document.getElementById('dropZone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragging'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('dragging'));
+dz.addEventListener('drop', e => {
+  e.preventDefault();
+  dz.classList.remove('dragging');
+  if (e.dataTransfer.files[0]) analyzeFile(e.dataTransfer.files[0]);
+});
+
+function reset() {
+  document.getElementById('results').classList.remove('show');
+  document.getElementById('dropZone').style.display = '';
+  document.getElementById('fileInput').value = '';
+}
+</script>
+</body>
+</html>
